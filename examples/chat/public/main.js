@@ -6,6 +6,7 @@ $(function() {
     '#58dc00', '#287b00', '#a8f07a', '#4ae8c4',
     '#3b88eb', '#3824aa', '#a700ff', '#d300e7'
   ];
+  var PRIVATE_COLOR = '#FF0040';
 
   // Initialize variables
   var $window = $(window);
@@ -18,12 +19,16 @@ $(function() {
 
   // Prompt for setting a username
   var username;
+  var receivername;
+  var isPrivate = false;
   var connected = false;
   var typing = false;
   var lastTypingTime;
   var $currentInput = $usernameInput.focus();
 
+
   var socket = io();
+
 
   function addParticipantsMessage (data) {
     var message = '';
@@ -59,13 +64,36 @@ $(function() {
     // if there is a non-empty message and a socket connection
     if (message && connected) {
       $inputMessage.val('');
+	  var username_ = username;
+	  if (isPrivate === true){
+		username_ += ' ( to '+receivername+' )';
+	  }
       addChatMessage({
-        username: username,
+        username: username_,
         message: message
       });
+	  if (isPrivate === true){
+		socket.emit('private', {to: receivername, message:  message });
+		unregisterPrivate();
+	  } else {
       // tell server to execute 'new message' and send along one parameter
-      socket.emit('new message', message);
+		socket.emit('new message', message);
+	  }
     }
+  }
+  
+  
+  function registerPrivate (receiver) {
+	if (receiver){
+		receivername = receiver;
+		isPrivate = true;
+		$inputMessage.attr('placeholder', 'Type message for '+receiver+' here...');
+	}		
+  }
+  
+    function unregisterPrivate () {
+		isPrivate = false;
+		$inputMessage.attr('placeholder',"Type here...");
   }
 
   // Log a message
@@ -84,11 +112,20 @@ $(function() {
       $typingMessages.remove();
     }
 
-    var $usernameDiv = $('<span class="username"/>')
-      .text(data.username)
+    var $usernameDiv = $('<span class="username" />')
+	  .text(data.username)
       .css('color', getUsernameColor(data.username));
+	  
+	   $usernameDiv.click(function() {
+		registerPrivate(data.username); }
+	  );
+
+
     var $messageBodyDiv = $('<span class="messageBody">')
       .text(data.message);
+	if ('isPrivate' in options){
+		$messageBodyDiv.css('color', PRIVATE_COLOR);
+	}
 
     var typingClass = data.typing ? 'typing' : '';
     var $messageDiv = $('<li class="message"/>')
@@ -239,6 +276,7 @@ $(function() {
   // Whenever the server emits 'new message', update the chat body
   socket.on('new message', function (data) {
     addChatMessage(data);
+	$.playSound("http://www.noiseaddicts.com/samples_1w72b820/3733");
   });
 
   // Whenever the server emits 'user joined', log it in the chat body
@@ -262,5 +300,10 @@ $(function() {
   // Whenever the server emits 'stop typing', kill the typing message
   socket.on('stop typing', function (data) {
     removeChatTyping(data);
+  });
+  
+  socket.on('private', function (data) {
+    addChatMessage(data,{isPrivate: true});
+	$.playSound("http://www.noiseaddicts.com/samples_1w72b820/3724");
   });
 });

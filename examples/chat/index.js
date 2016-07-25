@@ -44,6 +44,7 @@ io.on('connection', function (socket) {
       username: socket.username,
       numUsers: numUsers
     });
+	socket.join(username); // We are using room of socket io
   });
 
   // when the client emits 'typing', we broadcast it to others
@@ -72,4 +73,12 @@ io.on('connection', function (socket) {
       });
     }
   });
+  
+   socket.on('private', function (data) {
+	io.sockets.in(data.to).emit('private', {
+      username: socket.username,
+      message: data.message
+    });
+  });
+  
 });
